@@ -1,0 +1,3 @@
+*.etcd
+.DS_Store
+/watcher
