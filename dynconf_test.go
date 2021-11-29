@@ -1,9 +1,14 @@
 package dynconf
 
 import (
+	"context"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/go-kit/log"
 	"github.com/google/go-cmp/cmp"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func TestConfigString(t *testing.T) {
@@ -35,7 +40,8 @@ func TestConfigString(t *testing.T) {
 		},
 	}
 
-	c, err := New("configs/curiosity")
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +111,8 @@ func TestConfigBool(t *testing.T) {
 		},
 	}
 
-	c, err := New("configs/curiosity")
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +174,8 @@ func TestConfigInt(t *testing.T) {
 		},
 	}
 
-	c, err := New("configs/curiosity")
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +241,8 @@ func TestConfigFloat(t *testing.T) {
 		},
 	}
 
-	c, err := New("configs/curiosity")
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +306,8 @@ func TestConfigSettings(t *testing.T) {
 		},
 	}
 
-	c, err := New("configs/curiosity")
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,5 +332,39 @@ func TestConfigSettings(t *testing.T) {
 				t.Fatal(diff)
 			}
 		})
+	}
+}
+
+func TestNew(t *testing.T) {
+	etcd, err := clientv3.New(clientv3.Config{
+		Endpoints: []string{"127.0.0.1:2379"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithEtcdClient(etcd), WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if r, err := etcd.Put(ctx, "configs/curiosity/velocity", "5"); err != nil {
+		t.Fatalf("failed to put velocity=5 setting: %v %v", err, r)
+	}
+	// Wait for the watcher to see the changes in etcd.
+	time.Sleep(time.Second)
+
+	got := c.Int("velocity", 10)
+	want := 5
+	if want != got {
+		t.Errorf("expected velocity %d got %d", want, got)
 	}
 }

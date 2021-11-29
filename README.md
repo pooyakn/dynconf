@@ -30,3 +30,12 @@ rover.SetVelocity(
 	c.Int("velocity", defaultVelocity),
 )
 ```
+
+## Testing
+
+Run etcd (`127.0.0.1:2379` by default) and then launch the tests.
+
+```sh
+$ etcd
+$ go test -count=1 .
+```
