@@ -118,14 +118,20 @@ func (c *Config) watch() {
 
 // Settings returns all the settings.
 func (c *Config) Settings() map[string]string {
-	s := make(map[string]string)
+	ss := make(map[string]string)
 
+	var k, v string
 	c.settings.Range(func(key interface{}, value interface{}) bool {
-		s[key.(string)] = value.(string)
+		k, _ = key.(string)
+		v, _ = value.(string)
+		ss[k] = v
 		return true
 	})
+	if len(ss) == 0 {
+		return nil
+	}
 
-	return s
+	return ss
 }
 
 // String returns the string value of the given setting,

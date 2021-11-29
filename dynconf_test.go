@@ -1,6 +1,10 @@
 package dynconf
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+)
 
 func TestConfigString(t *testing.T) {
 	const defaultName = "bob"
@@ -253,6 +257,69 @@ func TestConfigFloat(t *testing.T) {
 			got := c.Float("temperature", defaultTemperature)
 			if tc.want != got {
 				t.Errorf("expected %f got %f", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestConfigSettings(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		want map[string]string
+	}{
+		"string int": {
+			in:   "10",
+			want: map[string]string{"name": "10"},
+		},
+		"string float": {
+			in:   "10.1",
+			want: map[string]string{"name": "10.1"},
+		},
+		"string name": {
+			in:   "alice",
+			want: map[string]string{"name": "alice"},
+		},
+		"bytes": {
+			in:   []byte("alice"),
+			want: map[string]string{"name": ""},
+		},
+		"nil": {
+			in:   nil,
+			want: map[string]string{"name": ""},
+		},
+		"int": {
+			in:   100,
+			want: map[string]string{"name": ""},
+		},
+		"float": {
+			in:   0.001,
+			want: map[string]string{"name": ""},
+		},
+	}
+
+	c, err := New("configs/curiosity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("no keys", func(t *testing.T) {
+		got := c.Settings()
+		if got != nil {
+			t.Errorf("expected nil got %v", got)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("name", tc.in)
+			got := c.Settings()
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Fatal(diff)
 			}
 		})
 	}
