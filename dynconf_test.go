@@ -271,6 +271,77 @@ func TestConfigFloat(t *testing.T) {
 	}
 }
 
+func TestConfigDate(t *testing.T) {
+	defaultLaunchedDate, _ := time.Parse(time.RFC3339, "2021-11-30T20:14:05.134115+00:00")
+
+	tests := map[string]struct {
+		in   interface{}
+		want time.Time
+	}{
+		"string date": {
+			in:   "2021-11-30T21:14:05.134115+00:00",
+			want: defaultLaunchedDate.Add(time.Hour),
+		},
+		"string int": {
+			in:   "10",
+			want: defaultLaunchedDate,
+		},
+		"string float": {
+			in:   "10.1",
+			want: defaultLaunchedDate,
+		},
+		"string name": {
+			in:   "alice",
+			want: defaultLaunchedDate,
+		},
+		"bytes": {
+			in:   []byte("alice"),
+			want: defaultLaunchedDate,
+		},
+		"nil": {
+			in:   nil,
+			want: defaultLaunchedDate,
+		},
+		"int": {
+			in:   100,
+			want: defaultLaunchedDate,
+		},
+		"float": {
+			in:   0.001,
+			want: defaultLaunchedDate,
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("configs/curiosity", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("no key", func(t *testing.T) {
+		got := c.Date("launched_at", defaultLaunchedDate)
+		want := defaultLaunchedDate
+		if !want.Equal(got) {
+			t.Errorf("expected %s got %s", want, got)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("launched_at", tc.in)
+			got := c.Date("launched_at", defaultLaunchedDate)
+			if !tc.want.Equal(got) {
+				t.Errorf("expected %s got %s", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestConfigSettings(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}

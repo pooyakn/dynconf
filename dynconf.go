@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/go-kit/log"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -222,4 +223,28 @@ func (c *Config) Float(setting string, defaultValue float64) float64 {
 	}
 
 	return f
+}
+
+// Date returns the date value of the given setting,
+// or defaultValue if it wasn't found or RFC3339 parsing failed.
+func (c *Config) Date(setting string, defaultValue time.Time) time.Time {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return defaultValue
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return defaultValue
+	}
+
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid RFC3339 date setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return defaultValue
+	}
+
+	return t
 }

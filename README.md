@@ -1,4 +1,4 @@
-# dynconf
+# Dynamic service configuration
 
 This Go package provides a dynamic service configuration backed by etcd,
 so there should be no need to redeploy a service to change its settings.
