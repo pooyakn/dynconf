@@ -153,9 +153,9 @@ func (c *Config) String(setting, defaultValue string) string {
 	return s
 }
 
-// Bool returns the boolean value of the given setting,
+// Boolean returns the boolean value of the given setting,
 // or defaultValue if it wasn't found or parsing failed.
-func (c *Config) Bool(setting string, defaultValue bool) bool {
+func (c *Config) Boolean(setting string, defaultValue bool) bool {
 	v, ok := c.settings.Load(setting)
 	if !ok {
 		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
@@ -170,16 +170,16 @@ func (c *Config) Bool(setting string, defaultValue bool) bool {
 
 	b, err := strconv.ParseBool(s)
 	if err != nil {
-		c.logger.Log("msg", "dynconf invalid bool setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		c.logger.Log("msg", "dynconf invalid boolean setting", "path", c.path, "setting", setting, "value", s, "err", err)
 		return defaultValue
 	}
 
 	return b
 }
 
-// Int returns the integer value of the given setting,
+// Integer returns the integer value of the given setting,
 // or defaultValue if it wasn't found or parsing failed.
-func (c *Config) Int(setting string, defaultValue int) int {
+func (c *Config) Integer(setting string, defaultValue int) int {
 	v, ok := c.settings.Load(setting)
 	if !ok {
 		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
@@ -194,7 +194,7 @@ func (c *Config) Int(setting string, defaultValue int) int {
 
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		c.logger.Log("msg", "dynconf invalid int setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		c.logger.Log("msg", "dynconf invalid integer setting", "path", c.path, "setting", setting, "value", s, "err", err)
 		return defaultValue
 	}
 

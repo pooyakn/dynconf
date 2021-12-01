@@ -123,7 +123,7 @@ func TestConfigBool(t *testing.T) {
 	})
 
 	t.Run("no key", func(t *testing.T) {
-		got := c.Bool("is_camera_enabled", defaultIsCameraEnabled)
+		got := c.Boolean("is_camera_enabled", defaultIsCameraEnabled)
 		want := defaultIsCameraEnabled
 		if want != got {
 			t.Errorf("expected %t got %t", want, got)
@@ -133,7 +133,7 @@ func TestConfigBool(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c.settings.Store("is_camera_enabled", tc.in)
-			got := c.Bool("is_camera_enabled", defaultIsCameraEnabled)
+			got := c.Boolean("is_camera_enabled", defaultIsCameraEnabled)
 			if tc.want != got {
 				t.Errorf("expected %t got %t", tc.want, got)
 			}
@@ -186,7 +186,7 @@ func TestConfigInt(t *testing.T) {
 	})
 
 	t.Run("no key", func(t *testing.T) {
-		got := c.Int("velocity", defaultVelocity)
+		got := c.Integer("velocity", defaultVelocity)
 		want := defaultVelocity
 		if want != got {
 			t.Errorf("expected %d got %d", want, got)
@@ -196,7 +196,7 @@ func TestConfigInt(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c.settings.Store("velocity", tc.in)
-			got := c.Int("velocity", defaultVelocity)
+			got := c.Integer("velocity", defaultVelocity)
 			if tc.want != got {
 				t.Errorf("expected %d got %d", tc.want, got)
 			}
@@ -433,7 +433,7 @@ func TestNew(t *testing.T) {
 	// Wait for the watcher to see the changes in etcd.
 	time.Sleep(time.Second)
 
-	got := c.Int("velocity", 10)
+	got := c.Integer("velocity", 10)
 	want := 5
 	if want != got {
 		t.Errorf("expected velocity %d got %d", want, got)
