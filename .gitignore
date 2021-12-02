@@ -1,5 +1,7 @@
 *.etcd
 *.pyc
+.tox
 dynconf.egg-info
 .DS_Store
+MANIFEST
 /watcher

@@ -44,6 +44,7 @@ class Config(object):
         self._path_len = len(path)
 
         self._etcd = etcd
+        self._watch_id = None
         if self._etcd is None:
             self._etcd = etcd3.client()
 
@@ -55,7 +56,7 @@ class Config(object):
 
         try:
             self._watch_id = self._etcd.add_watch_prefix_callback(self._path, self._watch)
-        except etcd3.exceptions.ConnectionFailedError:
+        except etcd3.exceptions.Etcd3Exception:
             self._logger.error('dynconf failed to watch settings', exc_info=True, extra={
                 'path': self._path,
             })
@@ -63,7 +64,7 @@ class Config(object):
     def _load(self):
         try:
             seq = self._etcd.get_prefix(self._path)
-        except etcd3.exceptions.ConnectionFailedError:
+        except etcd3.exceptions.Etcd3Exception:
             self._logger.error('dynconf failed to load settings', exc_info=True, extra={
                 'path': self._path,
             })
@@ -110,8 +111,11 @@ class Config(object):
         return k, v
 
     def close(self):
-        self.etcd.cancel_watch(self._watch_id)
-        self.etcd.close()
+        """Closes the underlying gRPC connection to etcd if it was established."""
+        if not self._watch_id:
+            return
+        self._etcd.cancel_watch(self._watch_id)
+        self._etcd.close()
 
     def settings(self):
         """Returns all the project's settings as a dict where keys and values are strings."""

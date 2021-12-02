@@ -27,3 +27,13 @@ On the service side the settings are fetched from the same path.
     rover.set_velocity(
         c.integer(setting='velocity', default_value=5),
     )
+
+Tests
+-----
+
+.. code-block:: console
+
+    $ virtualenv venv
+    $ source venv/bin/activate
+    (venv) $ pip install -r requirements.txt
+    (venv) $ tox
