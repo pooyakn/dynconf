@@ -70,7 +70,7 @@ func TestConfigString(t *testing.T) {
 	}
 }
 
-func TestConfigBool(t *testing.T) {
+func TestConfigBoolean(t *testing.T) {
 	const defaultIsCameraEnabled = false
 
 	tests := map[string]struct {
@@ -141,7 +141,7 @@ func TestConfigBool(t *testing.T) {
 	}
 }
 
-func TestConfigInt(t *testing.T) {
+func TestConfigInteger(t *testing.T) {
 	const defaultVelocity = 10
 
 	tests := map[string]struct {

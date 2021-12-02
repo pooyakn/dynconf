@@ -148,6 +148,32 @@ class Config(object):
         })
         return default_value
 
+    def boolean(self, setting, default_value):
+        """Returns the boolean value of the given setting,
+        or default_value if it wasn't found or type conversion failed.
+
+        :param setting: A setting name, e.g., is_camera_enabled.
+        :param default_value: A default setting value, e.g., True.
+
+        """
+        if setting not in self._cache:
+            self._logger.error('dynconf setting not found: {}'.format(setting), extra={
+                'path': self._path,
+                'setting': setting,
+            })
+            return default_value
+
+        v = self._cache[setting]
+        if isinstance(v, six.string_types) and v in ('true', 'false'):
+            return v == 'true'
+
+        self._logger.error('dynconf invalid boolean setting: {}'.format(setting), extra={
+            'path': self._path,
+            'setting': setting,
+            'value': v,
+        })
+        return default_value
+
     def integer(self, setting, default_value):
         """Returns the integer value of the given setting,
         or default_value if it wasn't found or type conversion failed.
