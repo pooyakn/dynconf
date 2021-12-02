@@ -205,7 +205,7 @@ func TestConfigInteger(t *testing.T) {
 }
 
 func TestConfigFloat(t *testing.T) {
-	const defaultTemperature = 0.001
+	const defaultTemperature = 36.6
 
 	tests := map[string]struct {
 		in   interface{}

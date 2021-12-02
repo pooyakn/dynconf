@@ -199,3 +199,29 @@ class Config(object):
                 'value': v,
             })
             return default_value
+
+    def float(self, setting, default_value):
+        """Returns the float value of the given setting,
+        or default_value if it wasn't found or type conversion failed.
+
+        :param setting: A setting name, e.g., temperature.
+        :param default_value: A default setting value, e.g., 36.6.
+
+        """
+        if setting not in self._cache:
+            self._logger.error('dynconf setting not found: {}'.format(setting), extra={
+                'path': self._path,
+                'setting': setting,
+            })
+            return default_value
+
+        v = self._cache[setting]
+        try:
+            return float(v)
+        except (ValueError, TypeError) as exc:
+            self._logger.error('dynconf invalid float setting: {}'.format(setting), exc_info=True, extra={
+                'path': self._path,
+                'setting': setting,
+                'value': v,
+            })
+            return default_value

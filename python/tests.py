@@ -131,3 +131,43 @@ class ConfigIntegerTest(unittest.TestCase):
         self.c._cache = {'velocity': 1.001}
         got = self.c.integer('velocity', 5)
         self.assertEqual(got, 1)
+
+
+class ConfigFloatTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.c = Config('/configs/curiosity/')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.c.close()
+
+    def test_string_integer(self):
+        self.c._cache = {'temperature': '10'}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 10)
+
+    def test_string_name(self):
+        self.c._cache = {'temperature': 'alice'}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 36.6)
+
+    def test_bytes(self):
+        self.c._cache = {'temperature': b'alice'}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 36.6)
+
+    def test_none(self):
+        self.c._cache = {'temperature': None}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 36.6)
+
+    def test_int(self):
+        self.c._cache = {'temperature': 100}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 100)
+
+    def test_float(self):
+        self.c._cache = {'temperature': 1.001}
+        got = self.c.float('temperature', 36.6)
+        self.assertEqual(got, 1.001)
