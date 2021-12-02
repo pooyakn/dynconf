@@ -8,6 +8,7 @@ This library allows to dynamically configure a service, e.g., some Django projec
 import logging
 
 import etcd3
+import six
 
 __all__ = ('Config',)
 
@@ -120,6 +121,32 @@ class Config(object):
     def settings(self):
         """Returns all the project's settings as a dict where keys and values are strings."""
         return self._cache.copy()
+
+    def string(self, setting, default_value):
+        """Returns the string value of the given setting,
+        or default_value if it wasn't found or type conversion failed.
+
+        :param setting: A setting name, e.g., name.
+        :param default_value: A default setting value, e.g., bob.
+
+        """
+        if setting not in self._cache:
+            self._logger.error('dynconf setting not found: {}'.format(setting), extra={
+                'path': self._path,
+                'setting': setting,
+            })
+            return default_value
+
+        v = self._cache[setting]
+        if isinstance(v, six.string_types):
+            return v
+
+        self._logger.error('dynconf invalid string setting: {}'.format(setting), extra={
+            'path': self._path,
+            'setting': setting,
+            'value': v,
+        })
+        return default_value
 
     def integer(self, setting, default_value):
         """Returns the integer value of the given setting,

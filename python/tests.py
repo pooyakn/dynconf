@@ -3,12 +3,49 @@ import unittest
 from dynconf import Config
 
 
-class ConfigIntegerTest(unittest.TestCase):
-    def setUp(self):
-        self.c = Config('/configs/curiosity/')
+class ConfigStringTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.c = Config('/configs/curiosity/')
 
-    def tearDown(self):
-        self.c.close()
+    @classmethod
+    def tearDownClass(cls):
+        cls.c.close()
+
+    def test_string_integer(self):
+        self.c._cache = {'velocity': '10'}
+        got = self.c.string('velocity', '5')
+        self.assertEqual(got, '10')
+
+    def test_string_name(self):
+        self.c._cache = {'velocity': 'alice'}
+        got = self.c.string('velocity', '5')
+        self.assertEqual(got, 'alice')
+
+    def test_none(self):
+        self.c._cache = {'velocity': None}
+        got = self.c.string('velocity', '5')
+        self.assertEqual(got, '5')
+
+    def test_int(self):
+        self.c._cache = {'velocity': 100}
+        got = self.c.string('velocity', '5')
+        self.assertEqual(got, '5')
+
+    def test_float(self):
+        self.c._cache = {'velocity': 1.001}
+        got = self.c.string('velocity', '5')
+        self.assertEqual(got, '5')
+
+
+class ConfigIntegerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.c = Config('/configs/curiosity/')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.c.close()
 
     def test_string_integer(self):
         self.c._cache = {'velocity': '10'}

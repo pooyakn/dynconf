@@ -11,6 +11,7 @@ setup(
     install_requires=[
         'etcd3>=0.12.0',
         'python-dateutil>=2.8.2',
+        'six',
     ],
     classifiers=[
         'Intended Audience :: Developers',
