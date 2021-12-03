@@ -5,6 +5,7 @@ dynconf
 This library allows to dynamically configure a service, e.g., some Django project.
 
 """
+import time
 import logging
 
 import etcd3
@@ -17,7 +18,9 @@ __all__ = ('Config',)
 class Config(object):
     """Provides an access to project's settings stored in etcd.
 
-    Usage example::
+    Usage example:
+
+    .. code-block:: python
 
         c = dynconf.Config(path='/configs/curiosity/')
         rover.set_velocity(
@@ -25,16 +28,20 @@ class Config(object):
         )
 
     """
-    def __init__(self, path, etcd=None, logger=None):
+    def __init__(self, path, create_etcd3_client=None, logger=None):
         """Sets up a new instance of the dynamic configuration.
 
         :param path: A path (prefix) to your project's settings.
             For example, project Curiosity might have settings such as velocity and is_camera_enabled.
             If the path is /configs/curiosity/, then the settings would be stored as the following etcd keys:
             /configs/curiosity/velocity and /configs/curiosity/is_camera_enabled.
-        :param etcd: Optional etcd3 client configured to your taste,
+        :param create_etcd3_client: An optional function that must return etcd3 client configured to your taste,
             see https://python-etcd3.readthedocs.io/en/latest/usage.html.
             By default an etcd client connects to 127.0.0.1:2379 gRPC endpoint.
+            Beware of exceptions if an etcd client is misconfigured.
+            It's recommended to catch and log them
+            to give an opportunity for the service (a Django project)
+            to start and run using default settings.
         :param logger: Optional logger configured to your taste.
             It helps to discover possible misconfigured settings.
             The logger works best when combined with JSON log formatter, see
@@ -44,37 +51,71 @@ class Config(object):
         self._cache = {}
         self._path = path
 
-        self._etcd = etcd
-        self._watch_id = None
-        if self._etcd is None:
-            self._etcd = etcd3.client()
+        self._create_etcd3_client = create_etcd3_client
+        if self._create_etcd3_client is None:
+            self._create_etcd3_client = etcd3.client
+        self._etcd = self._create_etcd3_client()
 
         self._logger = logger
         if self._logger is None:
             self._logger = logging.getLogger('dynconf')
 
+        # Note, these functions shouldn't block for long to avoid interfering with service launch.
+        self._watch_id = None
         self._load()
+        self._create_watcher()
 
-        try:
-            self._watch_id = self._etcd.add_watch_prefix_callback(self._path, self._watch)
-        except etcd3.exceptions.Etcd3Exception:
-            self._logger.error('dynconf failed to watch settings', exc_info=True, extra={
-                'path': self._path,
-            })
+    def close(self):
+        """Closes the underlying gRPC etcd connection if it was established."""
+        # Non-empty watch_id of the keys watcher indicates that
+        # there was an etcd connection at some point, so it should be cancelled.
+        if self._watch_id is None:
+            return
+        self._etcd.cancel_watch(self._watch_id)
+        self._etcd.close()
+        self._watch_id = None
 
     def _load(self):
+        """Fetches all the settings from etcd and populates the in-memory cache.
+
+        Note, the etcd exceptions are logged instead of propagating,
+        and a boolean status is returned to indicate success or failure.
+
+        """
         try:
             seq = self._etcd.get_prefix(self._path)
         except etcd3.exceptions.Etcd3Exception:
             self._logger.error('dynconf failed to load settings', exc_info=True, extra={
                 'path': self._path,
             })
-            return
+            return False
 
         path_len = len(self._path)
         for value, meta in seq:
             k, v = self._decode_setting(meta.key, value, path_len)
             self._cache[k] = v
+
+        return True
+
+    def _create_watcher(self):
+        """Creates an etcd key watcher that runs in a separate thread.
+
+        Its ID is stored so the watcher can be cancelled when Config instance is discarded.
+        The _watch callback is fired on any changes to etcd keys with given path prefix.
+
+        Note, the etcd exceptions are logged instead of propagating,
+        and a boolean status is returned to indicate success or failure.
+
+        """
+        try:
+            self._watch_id = self._etcd.add_watch_prefix_callback(self._path, self._watch)
+        except etcd3.exceptions.Etcd3Exception:
+            self._logger.error('dynconf failed to watch settings', exc_info=True, extra={
+                'path': self._path,
+            })
+            return False
+
+        return True
 
     def _watch(self, r):
         """Updates the settings cache when etcd keys change.
@@ -84,26 +125,55 @@ class Config(object):
         The keys and values (bytes) are decoded as utf-8 before being stored in the in-memory cache.
 
         """
-        # When etcd shuts down, the _MultiThreadedRendezvous doesn't have events attribute.
-        if not hasattr(r, 'events'):
-            self._logger.error('dynconf watch failed: no events', extra={
-                'path': self._path,
-            })
+        if hasattr(r, 'events'):
+            path_len = len(self._path)
+
+            for e in r.events:
+                k, v = self._decode_setting(e.key, e.value, path_len)
+                if isinstance(e, etcd3.events.PutEvent):
+                    self._cache[k] = v
+                elif isinstance(e, etcd3.events.DeleteEvent):
+                    del self._cache[k]
+
             return
 
-        # Perhaps the settings cache is empty because the etcd connection failed
-        # when the Config instance was created.
-        # Let's try loading the settings again.
-        if not self._cache:
-            self._load()
+        # When etcd server shuts down, the _MultiThreadedRendezvous doesn't have events attribute.
+        # This fact is used to try establish a connection again, loading the settings,
+        # and creating a new keys watcher.
+        self._logger.error('dynconf watch failed: no events', extra={
+            'path': self._path,
+        })
 
-        path_len = len(self._path)
-        for e in r.events:
-            k, v = self._decode_setting(e.key, e.value, path_len)
-            if isinstance(e, etcd3.events.PutEvent):
-                self._cache[k] = v
-            elif isinstance(e, etcd3.events.DeleteEvent):
-                del self._cache[k]
+        # Due to the connectivity issues a new etcd client has to be created,
+        # because python-etcd3 doesn't support reconnections unlike the Go etcd client.
+        # It seems there is no need to call self._etcd.close() here since gRPC connection failed.
+        # When it is closed, there is an exception in logs: ValueError: Cannot invoke RPC: Channel closed!
+        self._etcd = self._create_etcd3_client()
+
+        # Keep trying until the settings are loaded and the watcher is created,
+        # but give up when this Config instance is closed (the watcher ID is None).
+        wait_seconds = 10
+        while True:
+            if self._watch_id is None:
+                self._logger.info('dynconf give up reconnecting: Config closed', extra={
+                    'path': self._path,
+                })
+                break
+
+            self._logger.info('dynconf wait for {}s to reconnect'.format(wait_seconds), extra={
+                'path': self._path,
+            })
+            time.sleep(wait_seconds)
+            self._logger.info('dynconf reconnecting', extra={
+                'path': self._path,
+            })
+            if not self._load():
+                continue
+            if self._create_watcher():
+                self._logger.info('dynconf reconnected', extra={
+                    'path': self._path,
+                })
+                break
 
     @staticmethod
     def _decode_setting(key, value, prefix_len):
@@ -112,13 +182,6 @@ class Config(object):
         k = k.decode('utf-8')
         v = value.decode('utf-8')
         return k, v
-
-    def close(self):
-        """Closes the underlying gRPC connection to etcd if it was established."""
-        if not self._watch_id:
-            return
-        self._etcd.cancel_watch(self._watch_id)
-        self._etcd.close()
 
     def settings(self):
         """Returns all the project's settings as a dict where keys and values are strings."""
