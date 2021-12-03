@@ -3,10 +3,10 @@ Program watcher periodically prints all the settings stored at the given etcd pa
 so you can observe the changes made via etcdctl.
 For example, run the watcher and set the following keys.
 
-	etcdctl put configs/curiosity/velocity 10
-	etcdctl put configs/curiosity/is_camera_enabled true
-	etcdctl put configs/curiosity/velocity 20
-	etcdctl del configs/curiosity/velocity
+	etcdctl put /configs/curiosity/velocity 10
+	etcdctl put /configs/curiosity/is_camera_enabled true
+	etcdctl put /configs/curiosity/velocity 20
+	etcdctl del /configs/curiosity/velocity
 
 You should see that the updated settings are printed.
 */
@@ -30,7 +30,7 @@ func main() {
 	exitCode := 1
 	defer func() { os.Exit(exitCode) }()
 
-	path := flag.String("path", "configs/curiosity/", "path (etcd key prefix) in etcd where settings are stored")
+	path := flag.String("path", "/configs/curiosity/", "path (etcd key prefix) in etcd where settings are stored")
 	interval := flag.Duration("interval", 5*time.Second, "how often the settings shall be printed")
 	flag.Parse()
 

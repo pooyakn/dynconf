@@ -41,7 +41,7 @@ func TestConfigString(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestConfigBoolean(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestConfigInteger(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestConfigFloat(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestConfigDate(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +378,7 @@ func TestConfigSettings(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestNew(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	c, err := New("configs/curiosity", WithEtcdClient(etcd), WithLogger(logger))
+	c, err := New("/configs/curiosity/", WithEtcdClient(etcd), WithLogger(logger))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestNew(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if r, err := etcd.Put(ctx, "configs/curiosity/velocity", "5"); err != nil {
+	if r, err := etcd.Put(ctx, "/configs/curiosity/velocity", "5"); err != nil {
 		t.Fatalf("failed to put velocity=5 setting: %v %v", err, r)
 	}
 	// Wait for the watcher to see the changes in etcd.

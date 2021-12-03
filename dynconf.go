@@ -4,7 +4,6 @@ package dynconf
 
 import (
 	"context"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -32,7 +31,7 @@ func WithLogger(logger log.Logger) Option {
 
 // Config provides an access to a project's settings stored in etcd.
 type Config struct {
-	// path is the path to the project's config where settings are stored.
+	// path (etcd key prefix) is the path to the project's config where settings are stored.
 	path string
 	// settings map holds the project's settings obtained from etcd.
 	settings *sync.Map
@@ -45,8 +44,8 @@ type Config struct {
 // Note, the path to a config in etcd should be set to isolate config settings of different projects.
 //
 // For example, project Curiosity might have settings such as velocity and is_camera_enabled.
-// If the path is configs/curiosity, then the settings would be stored as the following etcd keys:
-// configs/curiosity/velocity and configs/curiosity/is_camera_enabled.
+// If the path is /configs/curiosity/, then the settings would be stored as the following etcd keys:
+// /configs/curiosity/velocity and /configs/curiosity/is_camera_enabled.
 func New(path string, options ...Option) (*Config, error) {
 	c := Config{
 		path:     path,
@@ -83,8 +82,11 @@ func (c *Config) load() error {
 		return err
 	}
 
+	// prefixLen is the length of the key prefix (path) in etcd to extract a setting name.
+	prefixLen := len(c.path)
 	for i := 0; i < len(r.Kvs); i++ {
-		_, setting := filepath.Split(string(r.Kvs[i].Key))
+		setting := string(r.Kvs[i].Key)
+		setting = setting[prefixLen:]
 
 		c.settings.Store(
 			setting,
@@ -103,9 +105,11 @@ func (c *Config) watch() {
 	}
 
 	updates := c.etcd.Watch(context.Background(), c.path, clientv3.WithPrefix())
+	prefixLen := len(c.path)
 	for u := range updates {
 		for _, e := range u.Events {
-			_, setting := filepath.Split(string(e.Kv.Key))
+			setting := string(e.Kv.Key)
+			setting = setting[prefixLen:]
 
 			switch e.Type {
 			case clientv3.EventTypePut:

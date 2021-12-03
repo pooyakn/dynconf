@@ -43,7 +43,6 @@ class Config(object):
         """
         self._cache = {}
         self._path = path
-        self._path_len = len(path)
 
         self._etcd = etcd
         self._watch_id = None
@@ -72,8 +71,9 @@ class Config(object):
             })
             return
 
+        path_len = len(self._path)
         for value, meta in seq:
-            k, v = self._decode_setting(meta.key, value, self._path_len)
+            k, v = self._decode_setting(meta.key, value, path_len)
             self._cache[k] = v
 
     def _watch(self, r):
@@ -97,8 +97,9 @@ class Config(object):
         if not self._cache:
             self._load()
 
+        path_len = len(self._path)
         for e in r.events:
-            k, v = self._decode_setting(e.key, e.value, self._path_len)
+            k, v = self._decode_setting(e.key, e.value, path_len)
             if isinstance(e, etcd3.events.PutEvent):
                 self._cache[k] = v
             elif isinstance(e, etcd3.events.DeleteEvent):
