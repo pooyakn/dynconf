@@ -9,6 +9,7 @@ import logging
 
 import etcd3
 import six
+import dateutil.parser
 
 __all__ = ('Config',)
 
@@ -220,6 +221,32 @@ class Config(object):
             return float(v)
         except (ValueError, TypeError) as exc:
             self._logger.error('dynconf invalid float setting: {}'.format(setting), exc_info=True, extra={
+                'path': self._path,
+                'setting': setting,
+                'value': v,
+            })
+            return default_value
+
+    def date(self, setting, default_value):
+        """Returns the date value of the given setting,
+        or default_value if it wasn't found or type conversion failed.
+
+        :param setting: A setting name, e.g., launched_at.
+        :param default_value: A default setting value, e.g., 2021-11-30T20:14:05.134115+00:00.
+
+        """
+        if setting not in self._cache:
+            self._logger.error('dynconf setting not found: {}'.format(setting), extra={
+                'path': self._path,
+                'setting': setting,
+            })
+            return default_value
+
+        v = self._cache[setting]
+        try:
+            return dateutil.parser.parse(v)
+        except (ValueError, TypeError) as exc:
+            self._logger.error('dynconf invalid date setting: {}'.format(setting), exc_info=True, extra={
                 'path': self._path,
                 'setting': setting,
                 'value': v,

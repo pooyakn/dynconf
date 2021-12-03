@@ -1,5 +1,7 @@
 import unittest
+from datetime import datetime
 
+import dateutil.parser
 from dynconf import Config
 
 
@@ -171,3 +173,52 @@ class ConfigFloatTest(unittest.TestCase):
         self.c._cache = {'temperature': 1.001}
         got = self.c.float('temperature', 36.6)
         self.assertEqual(got, 1.001)
+
+
+class ConfigDateTest(unittest.TestCase):
+    launched_at = dateutil.parser.parse('2021-11-30T20:14:05.134115+00:00')
+
+    @classmethod
+    def setUpClass(cls):
+        cls.c = Config('/configs/curiosity/')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.c.close()
+
+    def test_string_date(self):
+        self.c._cache = {'launched_at': '2021-11-30T21:14:05.134115+00:00'}
+        got = self.c.date('launched_at', self.launched_at)
+        want = dateutil.parser.parse('2021-11-30T21:14:05.134115+00:00')
+        self.assertEqual(got, want)
+
+    def test_string_integer(self):
+        self.c._cache = {'launched_at': '10'}
+        got = self.c.date('launched_at', self.launched_at)
+        want = datetime(2021, 12, 10, 0, 0)
+        self.assertEqual(got, want)
+
+    def test_string_name(self):
+        self.c._cache = {'launched_at': 'alice'}
+        got = self.c.date('launched_at', self.launched_at)
+        self.assertEqual(got, self.launched_at)
+
+    def test_bytes(self):
+        self.c._cache = {'launched_at': b'alice'}
+        got = self.c.date('launched_at', self.launched_at)
+        self.assertEqual(got, self.launched_at)
+
+    def test_none(self):
+        self.c._cache = {'launched_at': None}
+        got = self.c.date('launched_at', self.launched_at)
+        self.assertEqual(got, self.launched_at)
+
+    def test_int(self):
+        self.c._cache = {'launched_at': 100}
+        got = self.c.date('launched_at', self.launched_at)
+        self.assertEqual(got, self.launched_at)
+
+    def test_float(self):
+        self.c._cache = {'launched_at': 1.001}
+        got = self.c.date('launched_at', self.launched_at)
+        self.assertEqual(got, self.launched_at)
