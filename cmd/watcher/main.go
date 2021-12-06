@@ -15,13 +15,15 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/go-kit/log"
 	"github.com/marselester/dynconf"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func main() {
@@ -30,16 +32,36 @@ func main() {
 	exitCode := 1
 	defer func() { os.Exit(exitCode) }()
 
+	endpoints := flag.String("endpoints", "127.0.0.1:2379", "etcd endpoints")
 	path := flag.String("path", "/configs/curiosity/", "path (etcd key prefix) in etcd where settings are stored")
 	interval := flag.Duration("interval", 5*time.Second, "how often the settings shall be printed")
 	flag.Parse()
 
-	conf, err := dynconf.New(*path)
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	c, err := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(*endpoints, ","),
+	})
+	if err != nil {
+		logger.Log("msg", "failed to create etcd client", "err", err)
+	}
+
+	conf, err := dynconf.New(
+		*path,
+		dynconf.WithLogger(logger),
+		dynconf.WithEtcdClient(c),
+	)
 	if err != nil {
 		// No worries if etcd is down, the rover can still roll with the default settings.
-		log.Printf("dynconf failed to connect to etcd: %v", err)
+		logger.Log("msg", "dynconf failed to connect to etcd", "err", err)
 	}
-	defer conf.Close()
+	defer func() {
+		if err := conf.Close(); err != nil {
+			logger.Log("msg", "dynconf failed to close etcd connection", "err", err)
+		}
+	}()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -50,7 +72,7 @@ Loop:
 		case <-ctx.Done():
 			break Loop
 		case <-time.After(*interval):
-			log.Println(conf.Settings())
+			logger.Log("settings", conf.Settings())
 		}
 	}
 

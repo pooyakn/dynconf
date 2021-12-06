@@ -104,9 +104,15 @@ func (c *Config) watch() {
 		c.logger.Log("msg", "dynconf failed to load settings", "path", c.path, "err", err)
 	}
 
-	updates := c.etcd.Watch(context.Background(), c.path, clientv3.WithPrefix())
 	prefixLen := len(c.path)
+	// As long as the context has not been canceled,
+	// watch will retry on recoverable errors forever until reconnected.
+	updates := c.etcd.Watch(context.Background(), c.path, clientv3.WithPrefix())
 	for u := range updates {
+		if err := u.Err(); err != nil {
+			c.logger.Log("msg", "dynconf watch error", "path", c.path, "err", err)
+		}
+
 		for _, e := range u.Events {
 			setting := string(e.Kv.Key)
 			setting = setting[prefixLen:]
