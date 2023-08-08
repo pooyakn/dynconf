@@ -794,3 +794,47 @@ func TestNew(t *testing.T) {
 		t.Errorf("expected velocity %d got %d", want, got)
 	}
 }
+
+func TestOnUpdate(t *testing.T) {
+	etcd, err := clientv3.New(clientv3.Config{
+		Endpoints: []string{"127.0.0.1:2379"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := "0"
+	onUpdate := func(s map[string]string) {
+		t.Logf("updated: %v", s)
+		received = s["velocity"]
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithEtcdClient(etcd), WithLogger(logger), WithOnUpdate(onUpdate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if r, err := etcd.Put(ctx, "/configs/curiosity/velocity", "5"); err != nil {
+		t.Fatalf("failed to put velocity=5 setting: %v %v", err, r)
+	}
+	// Wait for the watcher to see the changes in etcd.
+	time.Sleep(time.Second)
+
+	got := c.Integer("velocity", 10)
+	want := 5
+	if want != got {
+		t.Errorf("expected velocity %d got %d", want, got)
+	}
+
+	if received != "5" {
+		t.Errorf("expected received %s got %s", "5", received)
+	}
+}

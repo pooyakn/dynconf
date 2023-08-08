@@ -32,6 +32,13 @@ func WithLogger(logger log.Logger) Option {
 	}
 }
 
+// WithOnUpdate sets a function to be called when a setting is updated.
+func WithOnUpdate(f func(settings map[string]string)) Option {
+	return func(c *Config) {
+		c.onUpdate = f
+	}
+}
+
 // Config provides access to a project's settings stored in etcd.
 type Config struct {
 	// path (etcd key prefix) is the path to the project's config where settings are stored.
@@ -40,6 +47,7 @@ type Config struct {
 	settings *sync.Map
 	etcd     *clientv3.Client
 	logger   log.Logger
+	onUpdate func(settings map[string]string)
 }
 
 // New returns a Config which can be set up with Option functions.
@@ -126,6 +134,10 @@ func (c *Config) watch() {
 			case clientv3.EventTypeDelete:
 				c.settings.Delete(setting)
 			}
+		}
+
+		if c.onUpdate != nil {
+			c.onUpdate(c.Settings())
 		}
 	}
 }
