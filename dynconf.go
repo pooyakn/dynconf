@@ -194,6 +194,24 @@ func (c *Config) String(setting, defaultValue string) string {
 	return s
 }
 
+// StringRequired returns the string value of the given setting,
+// or error if it wasn't found.
+func (c *Config) StringRequired(setting string) (string, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return "", fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return "", fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	return s, nil
+}
+
 // Boolean returns the boolean value of the given setting,
 // or defaultValue if it wasn't found or parsing failed.
 func (c *Config) Boolean(setting string, defaultValue bool) bool {
@@ -216,6 +234,30 @@ func (c *Config) Boolean(setting string, defaultValue bool) bool {
 	}
 
 	return b
+}
+
+// BooleanRequired returns the boolean value of the given setting,
+// or error if it wasn't found or parsing failed.
+func (c *Config) BooleanRequired(setting string) (bool, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return false, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return false, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid boolean setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return false, fmt.Errorf("dynconf invalid boolean setting: %s", setting)
+	}
+
+	return b, nil
 }
 
 // Integer returns the integer value of the given setting,
@@ -242,7 +284,32 @@ func (c *Config) Integer(setting string, defaultValue int) int {
 	return i
 }
 
+// IntegerRequired returns the integer value of the given setting,
+// or error if it wasn't found or parsing failed.
+func (c *Config) IntegerRequired(setting string) (int, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return 0, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return 0, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid integer setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return 0, fmt.Errorf("dynconf invalid integer setting: %s", setting)
+	}
+
+	return i, nil
+}
+
 // Int64 returns the int64 value of the given setting,
+// or defaultValue if it wasn't found or parsing failed.
 func (c *Config) Int64(setting string, defaultValue int64) int64 {
 	v, ok := c.settings.Load(setting)
 	if !ok {
@@ -263,6 +330,30 @@ func (c *Config) Int64(setting string, defaultValue int64) int64 {
 	}
 
 	return i
+}
+
+// Int64Required returns the int64 value of the given setting,
+// or error if it wasn't found or parsing failed.
+func (c *Config) Int64Required(setting string) (int64, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return 0, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return 0, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid integer setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return 0, fmt.Errorf("dynconf invalid integer setting: %s", setting)
+	}
+
+	return i, nil
 }
 
 // Float returns the float value of the given setting,
@@ -289,6 +380,30 @@ func (c *Config) Float(setting string, defaultValue float64) float64 {
 	return f
 }
 
+// FloatRequired returns the float value of the given setting,
+// or error if it wasn't found or parsing failed.
+func (c *Config) FloatRequired(setting string) (float64, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return 0, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return 0, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid float setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return 0, fmt.Errorf("dynconf invalid float setting: %s", setting)
+	}
+
+	return f, nil
+}
+
 // Date returns the date value of the given setting,
 // or defaultValue if it wasn't found or RFC3339 parsing failed.
 func (c *Config) Date(setting string, format string, defaultValue time.Time) time.Time {
@@ -313,6 +428,30 @@ func (c *Config) Date(setting string, format string, defaultValue time.Time) tim
 	return t
 }
 
+// DateRequired returns the date value of the given setting,
+// or error if it wasn't found or RFC3339 parsing failed.
+func (c *Config) DateRequired(setting string, format string) (time.Time, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return time.Time{}, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return time.Time{}, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	t, err := time.Parse(format, s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid RFC3339 date setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return time.Time{}, fmt.Errorf("dynconf invalid RFC3339 date setting: %s", setting)
+	}
+
+	return t, nil
+}
+
 // Struct returns the struct value of the given setting,
 func (c *Config) Struct(setting string, out interface{}) error {
 	v, ok := c.settings.Load(setting)
@@ -335,6 +474,7 @@ func (c *Config) Struct(setting string, out interface{}) error {
 }
 
 // Duration returns the duration value of the given setting,
+// or defaultValue if it wasn't found or parsing failed.
 func (c *Config) Duration(setting string, defaultValue time.Duration) time.Duration {
 	v, ok := c.settings.Load(setting)
 	if !ok {
@@ -355,6 +495,30 @@ func (c *Config) Duration(setting string, defaultValue time.Duration) time.Durat
 	}
 
 	return d
+}
+
+// DurationRequired returns the duration value of the given setting,
+// or error if it wasn't found or parsing failed.
+func (c *Config) DurationRequired(setting string) (time.Duration, error) {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return 0, fmt.Errorf("dynconf setting not found: %s", setting)
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return 0, fmt.Errorf("dynconf invalid string value: %s", setting)
+	}
+
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid duration setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return 0, fmt.Errorf("dynconf invalid duration setting: %s", setting)
+	}
+
+	return d, nil
 }
 
 // StringArray returns the string array value of the given setting,

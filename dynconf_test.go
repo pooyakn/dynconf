@@ -73,6 +73,70 @@ func TestConfigString(t *testing.T) {
 	}
 }
 
+func TestConfigStringRequired(t *testing.T) {
+	tests := map[string]struct {
+		in      interface{}
+		want    string
+		wantErr bool
+	}{
+		"string": {
+			in:   "alice",
+			want: "alice",
+		},
+		"bytes": {
+			in:      []byte("alice"),
+			wantErr: true,
+		},
+		"nil": {
+			in:      nil,
+			wantErr: true,
+		},
+		"int": {
+			in:      100,
+			wantErr: true,
+		},
+		"float": {
+			in:      0.001,
+			wantErr: true,
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("no key", func(t *testing.T) {
+		_, err := c.StringRequired("name")
+		if err == nil {
+			t.Errorf("expected error")
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("name", tc.in)
+			got, err := c.StringRequired("name")
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error")
+				}
+				return
+			}
+
+			if tc.want != got {
+				t.Errorf("expected %q got %q", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestConfigBoolean(t *testing.T) {
 	const defaultIsCameraEnabled = false
 
