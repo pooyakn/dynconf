@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,6 +49,7 @@ type Config struct {
 	etcd     *clientv3.Client
 	logger   log.Logger
 	onUpdate func(settings map[string]string)
+	ready    chan struct{}
 }
 
 // New returns a Config which can be set up with Option functions.
@@ -62,6 +64,7 @@ func New(path string, options ...Option) (*Config, error) {
 		path:     path,
 		settings: &sync.Map{},
 		logger:   log.NewNopLogger(),
+		ready:    make(chan struct{}, 1),
 	}
 	for _, opt := range options {
 		opt(&c)
@@ -79,6 +82,17 @@ func New(path string, options ...Option) (*Config, error) {
 	go c.watch()
 
 	return &c, nil
+}
+
+// Ready waits until the Config is ready to use.
+func (c *Config) Ready(ctx context.Context) error {
+	select {
+	case <-c.ready:
+		close(c.ready)
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("dynconf not ready: %w", ctx.Err())
+	}
 }
 
 // Close closes the underlying etcd client.
@@ -104,6 +118,8 @@ func (c *Config) load() error {
 			string(r.Kvs[i].Value),
 		)
 	}
+
+	c.ready <- struct{}{}
 
 	return nil
 }
