@@ -4,7 +4,10 @@ package dynconf
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,7 +32,7 @@ func WithLogger(logger log.Logger) Option {
 	}
 }
 
-// Config provides an access to a project's settings stored in etcd.
+// Config provides access to a project's settings stored in etcd.
 type Config struct {
 	// path (etcd key prefix) is the path to the project's config where settings are stored.
 	path string
@@ -237,7 +240,7 @@ func (c *Config) Float(setting string, defaultValue float64) float64 {
 
 // Date returns the date value of the given setting,
 // or defaultValue if it wasn't found or RFC3339 parsing failed.
-func (c *Config) Date(setting string, defaultValue time.Time) time.Time {
+func (c *Config) Date(setting string, format string, defaultValue time.Time) time.Time {
 	v, ok := c.settings.Load(setting)
 	if !ok {
 		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
@@ -250,11 +253,141 @@ func (c *Config) Date(setting string, defaultValue time.Time) time.Time {
 		return defaultValue
 	}
 
-	t, err := time.Parse(time.RFC3339, s)
+	t, err := time.Parse(format, s)
 	if err != nil {
 		c.logger.Log("msg", "dynconf invalid RFC3339 date setting", "path", c.path, "setting", setting, "value", s, "err", err)
 		return defaultValue
 	}
 
 	return t
+}
+
+// Struct returns the struct value of the given setting,
+func (c *Config) Struct(setting string, out interface{}) error {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return errors.New("setting not found")
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return errors.New("invalid string value")
+	}
+
+	if unmarshaler, ok := out.(json.Unmarshaler); ok && unmarshaler != nil {
+		return unmarshaler.UnmarshalJSON([]byte(s))
+	}
+
+	return json.Unmarshal([]byte(s), out)
+}
+
+// StringArray returns the string array value of the given setting,
+func (c *Config) StringArray(setting string, delimiter string) []string {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return nil
+	}
+
+	return strings.Split(s, delimiter)
+}
+
+// IntegerArray returns the integer array value of the given setting,
+func (c *Config) IntegerArray(setting string, delimiter string) []int {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return nil
+	}
+
+	ss := strings.Split(s, delimiter)
+	is := make([]int, len(ss))
+	for i, s := range ss {
+		is[i], _ = strconv.Atoi(s)
+	}
+
+	return is
+}
+
+// FloatArray returns the float array value of the given setting,
+func (c *Config) FloatArray(setting string, delimiter string) []float64 {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return nil
+	}
+
+	ss := strings.Split(s, delimiter)
+	fs := make([]float64, len(ss))
+	for i, s := range ss {
+		fs[i], _ = strconv.ParseFloat(s, 64)
+	}
+
+	return fs
+}
+
+// DateArray returns the date array value of the given setting,
+func (c *Config) DateArray(setting string, format string, delimiter string) []time.Time {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return nil
+	}
+
+	ss := strings.Split(s, delimiter)
+	ts := make([]time.Time, len(ss))
+	for i, s := range ss {
+		ts[i], _ = time.Parse(format, s)
+	}
+
+	return ts
+}
+
+// BoolArray returns the boolean array value of the given setting,
+func (c *Config) BoolArray(setting string, delimiter string) []bool {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return nil
+	}
+
+	ss := strings.Split(s, delimiter)
+	bs := make([]bool, len(ss))
+	for i, s := range ss {
+		bs[i], _ = strconv.ParseBool(s)
+	}
+
+	return bs
 }

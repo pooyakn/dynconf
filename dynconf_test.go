@@ -3,6 +3,9 @@ package dynconf
 import (
 	"context"
 	"os"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -324,7 +327,7 @@ func TestConfigDate(t *testing.T) {
 	})
 
 	t.Run("no key", func(t *testing.T) {
-		got := c.Date("launched_at", defaultLaunchedDate)
+		got := c.Date("launched_at", time.RFC3339, defaultLaunchedDate)
 		want := defaultLaunchedDate
 		if !want.Equal(got) {
 			t.Errorf("expected %s got %s", want, got)
@@ -334,9 +337,315 @@ func TestConfigDate(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c.settings.Store("launched_at", tc.in)
-			got := c.Date("launched_at", defaultLaunchedDate)
+			got := c.Date("launched_at", time.RFC3339, defaultLaunchedDate)
 			if !tc.want.Equal(got) {
 				t.Errorf("expected %s got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestConfigStruct(t *testing.T) {
+	type config struct {
+		Name   string  `json:"name"`
+		Age    int     `json:"age"`
+		Weight float64 `json:"weight"`
+	}
+
+	tests := map[string]struct {
+		in   interface{}
+		want config
+	}{
+		"string int": {
+			in: "{\"age\":10}",
+			want: config{
+				Age: 10,
+			},
+		},
+		"string float": {
+			in: "{\"weight\":10.1}",
+			want: config{
+				Weight: 10.1,
+			},
+		},
+		"string name": {
+			in:   "{\"name\":\"alice\"}",
+			want: config{Name: "alice"},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("config", tc.in)
+			var got config
+			if err := c.Struct("config", &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+type configWithUnmarshaler struct {
+	Name   string
+	Age    int
+	Weight float64
+}
+
+func (c *configWithUnmarshaler) UnmarshalJSON(data []byte) error {
+	split := strings.Split(string(data), ",")
+	conf := configWithUnmarshaler{}
+	for _, d := range split {
+		parts := strings.Split(d, ":")
+		switch strings.Trim(parts[0], "\"") {
+		case "name":
+			conf.Name = strings.Trim(parts[1], "\"")
+		case "age":
+			age, err := strconv.Atoi(strings.Trim(parts[1], "\""))
+			if err != nil {
+				return err
+			}
+			conf.Age = age
+		case "weight":
+			weight, err := strconv.ParseFloat(strings.Trim(parts[1], "\""), 64)
+			if err != nil {
+				return err
+			}
+			conf.Weight = weight
+		}
+	}
+
+	*c = conf
+	return nil
+}
+
+func TestConfigStructCustomUnmarshaler(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		want configWithUnmarshaler
+	}{
+		"string int": {
+			in: "age:10",
+			want: configWithUnmarshaler{
+				Age: 10,
+			},
+		},
+		"string float": {
+			in: "weight:10.1",
+			want: configWithUnmarshaler{
+				Weight: 10.1,
+			},
+		},
+		"string name": {
+			in:   "name:alice",
+			want: configWithUnmarshaler{Name: "alice"},
+		},
+		"multi key": {
+			in: "name:alice,age:10,weight:10.1",
+			want: configWithUnmarshaler{
+				Name:   "alice",
+				Age:    10,
+				Weight: 10.1,
+			},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("config", tc.in)
+			var got configWithUnmarshaler
+			if err := c.Struct("config", &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestStringArray(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		del  string
+		want []string
+	}{
+		"string array": {
+			in:   "alice,bob",
+			del:  ",",
+			want: []string{"alice", "bob"},
+		},
+		"string array with different separator": {
+			in:   "alice|bob",
+			del:  "|",
+			want: []string{"alice", "bob"},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("names", tc.in)
+			got := c.StringArray("names", tc.del)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestIntegerArray(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		del  string
+		want []int
+	}{
+		"string array": {
+			in:   "10,20",
+			del:  ",",
+			want: []int{10, 20},
+		},
+		"string array with different separator": {
+			in:   "10|20",
+			del:  "|",
+			want: []int{10, 20},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("numbers", tc.in)
+			got := c.IntegerArray("numbers", tc.del)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestFloatArray(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		del  string
+		want []float64
+	}{
+		"string array": {
+			in:   "10.1,20.2",
+			del:  ",",
+			want: []float64{10.1, 20.2},
+		},
+		"string array with different separator": {
+			in:   "10.1|20.2",
+			del:  "|",
+			want: []float64{10.1, 20.2},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("numbers", tc.in)
+			got := c.FloatArray("numbers", tc.del)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestDateArray(t *testing.T) {
+	tests := map[string]struct {
+		in     interface{}
+		del    string
+		format string
+		want   []time.Time
+	}{
+		"string array": {
+			in:     "2020-01-01,2020-02-02",
+			del:    ",",
+			format: "2006-01-02",
+			want:   []time.Time{time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2020, 2, 2, 0, 0, 0, 0, time.UTC)},
+		},
+		"string array with different separator": {
+			in:     "2020-01-01|2020-02-02",
+			del:    "|",
+			format: "2006-01-02",
+			want:   []time.Time{time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2020, 2, 2, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("dates", tc.in)
+			got := c.DateArray("dates", tc.format, tc.del)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
 			}
 		})
 	}
@@ -401,6 +710,52 @@ func TestConfigSettings(t *testing.T) {
 			got := c.Settings()
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+func TestBoolArray(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		del  string
+		want []bool
+	}{
+		"string array": {
+			in:  "true,false",
+			del: ",",
+			want: []bool{
+				true,
+				false,
+			},
+		},
+		"string array with different separator": {
+			in:  "true|false",
+			del: "|",
+			want: []bool{
+				true,
+				false,
+			},
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("bools", tc.in)
+			got := c.BoolArray("bools", tc.del)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("expected %v got %v", tc.want, got)
 			}
 		})
 	}
