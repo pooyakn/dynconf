@@ -242,6 +242,29 @@ func (c *Config) Integer(setting string, defaultValue int) int {
 	return i
 }
 
+// Int64 returns the int64 value of the given setting,
+func (c *Config) Int64(setting string, defaultValue int64) int64 {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return defaultValue
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return defaultValue
+	}
+
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid integer setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return defaultValue
+	}
+
+	return i
+}
+
 // Float returns the float value of the given setting,
 // or defaultValue if it wasn't found or parsing failed.
 func (c *Config) Float(setting string, defaultValue float64) float64 {
@@ -309,6 +332,29 @@ func (c *Config) Struct(setting string, out interface{}) error {
 	}
 
 	return json.Unmarshal([]byte(s), out)
+}
+
+// Duration returns the duration value of the given setting,
+func (c *Config) Duration(setting string, defaultValue time.Duration) time.Duration {
+	v, ok := c.settings.Load(setting)
+	if !ok {
+		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")
+		return defaultValue
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		c.logger.Log("msg", "dynconf invalid string value", "path", c.path, "setting", setting, "value", v)
+		return defaultValue
+	}
+
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		c.logger.Log("msg", "dynconf invalid duration setting", "path", c.path, "setting", setting, "value", s, "err", err)
+		return defaultValue
+	}
+
+	return d
 }
 
 // StringArray returns the string array value of the given setting,
@@ -397,8 +443,8 @@ func (c *Config) DateArray(setting string, format string, delimiter string) []ti
 	return ts
 }
 
-// BoolArray returns the boolean array value of the given setting,
-func (c *Config) BoolArray(setting string, delimiter string) []bool {
+// BooleanArray returns the boolean array value of the given setting,
+func (c *Config) BooleanArray(setting string, delimiter string) []bool {
 	v, ok := c.settings.Load(setting)
 	if !ok {
 		c.logger.Log("msg", "dynconf setting not found", "path", c.path, "setting", setting, "err", "not found")

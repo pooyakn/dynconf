@@ -207,6 +207,69 @@ func TestConfigInteger(t *testing.T) {
 	}
 }
 
+func TestConfigInt64(t *testing.T) {
+	const defaultVelocity int64 = 10
+
+	tests := map[string]struct {
+		in   interface{}
+		want int64
+	}{
+		"string int": {
+			in:   "10",
+			want: 10,
+		},
+		"string name": {
+			in:   "alice",
+			want: defaultVelocity,
+		},
+		"bytes": {
+			in:   []byte("alice"),
+			want: defaultVelocity,
+		},
+		"nil": {
+			in:   nil,
+			want: defaultVelocity,
+		},
+		"int": {
+			in:   100,
+			want: defaultVelocity,
+		},
+		"float": {
+			in:   0.001,
+			want: defaultVelocity,
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("no key", func(t *testing.T) {
+		got := c.Int64("velocity", defaultVelocity)
+		want := defaultVelocity
+		if want != got {
+			t.Errorf("expected %d got %d", want, got)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("velocity", tc.in)
+			got := c.Int64("velocity", defaultVelocity)
+			if tc.want != got {
+				t.Errorf("expected %d got %d", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestConfigFloat(t *testing.T) {
 	const defaultTemperature = 36.6
 
@@ -488,7 +551,52 @@ func TestConfigStructCustomUnmarshaler(t *testing.T) {
 	}
 }
 
-func TestStringArray(t *testing.T) {
+func TestConfigDuration(t *testing.T) {
+	tests := map[string]struct {
+		in   interface{}
+		want time.Duration
+	}{
+		"duration second": {
+			in:   "10s",
+			want: 10 * time.Second,
+		},
+		"duration minute": {
+			in:   "10m",
+			want: 10 * time.Minute,
+		},
+		"duration hour": {
+			in:   "10h",
+			want: 10 * time.Hour,
+		},
+		"no duration": {
+			in:   "10",
+			want: 5 * time.Second,
+		},
+	}
+
+	logger := log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	c, err := New("/configs/curiosity/", WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			c.settings.Store("duration", tc.in)
+			got := c.Duration("duration", 5*time.Second)
+			if tc.want != got {
+				t.Errorf("expected %s got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestConfigStringArray(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}
 		del  string
@@ -528,7 +636,7 @@ func TestStringArray(t *testing.T) {
 	}
 }
 
-func TestIntegerArray(t *testing.T) {
+func TestConfigIntegerArray(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}
 		del  string
@@ -568,7 +676,7 @@ func TestIntegerArray(t *testing.T) {
 	}
 }
 
-func TestFloatArray(t *testing.T) {
+func TestConfigFloatArray(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}
 		del  string
@@ -608,7 +716,7 @@ func TestFloatArray(t *testing.T) {
 	}
 }
 
-func TestDateArray(t *testing.T) {
+func TestConfigDateArray(t *testing.T) {
 	tests := map[string]struct {
 		in     interface{}
 		del    string
@@ -651,7 +759,7 @@ func TestDateArray(t *testing.T) {
 	}
 }
 
-func TestConfigSettings(t *testing.T) {
+func TestConfigConfigSettings(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}
 		want map[string]string
@@ -715,7 +823,7 @@ func TestConfigSettings(t *testing.T) {
 	}
 }
 
-func TestBoolArray(t *testing.T) {
+func TestConfigBooleanArray(t *testing.T) {
 	tests := map[string]struct {
 		in   interface{}
 		del  string
@@ -753,7 +861,7 @@ func TestBoolArray(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c.settings.Store("bools", tc.in)
-			got := c.BoolArray("bools", tc.del)
+			got := c.BooleanArray("bools", tc.del)
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("expected %v got %v", tc.want, got)
 			}
