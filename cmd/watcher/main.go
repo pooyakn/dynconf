@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/go-kit/log"
-	"github.com/marselester/dynconf"
+	"github.com/pooyakn/dynconf"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
